@@ -45,7 +45,9 @@ def setup_training_loop_kwargs(
 
     # Base config.
     cfg        = None, # Base config: 'auto' (default), 'stylegan2', 'paper256', 'paper512', 'paper1024', 'cifar'
-    lrate      = None, # Override learning rate
+    # lrate      = None, # Override learning rate
+    glrate     = None, # Override generator R1 gamma: <float>
+    dlrate     = None, # Override discriminator duration: <int>
     gamma      = None, # Override R1 gamma: <float>
     kimg       = None, # Override training duration: <int>
     nkimg      = None, # Override starting count
@@ -164,39 +166,47 @@ def setup_training_loop_kwargs(
     desc += f'-{cfg}'
 
     cfg_specs = {
-        'auto':          dict(ref_gpus=-1, kimg=25000,  mb=-1, mbstd=-1, fmaps=-1,  lrate=-1,     gamma=-1,   ema=-1,  ramp=0.05, map=2), # populated dynamically based on 'gpus' and 'res'
-        'aydao':     dict(ref_gpus=2,  kimg=25000,  mb=16, mbstd=8,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
-        '11gb-gpu':     dict(ref_gpus=1,  kimg=25000,  mb=4, mbstd=4,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
-        '11gb-gpu-complex':     dict(ref_gpus=1,  kimg=25000,  mb=4, mbstd=4,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
-        '24gb-gpu':     dict(ref_gpus=1,  kimg=25000,  mb=8, mbstd=8,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
-        '24gb-gpu-complex':     dict(ref_gpus=1,  kimg=25000,  mb=8, mbstd=8,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
-        '24gb-2gpu-complex':     dict(ref_gpus=2,  kimg=25000,  mb=16, mbstd=8,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
-        '48gb-gpu':     dict(ref_gpus=1,  kimg=25000,  mb=16, mbstd=16,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 48GB GPU
-        '48gb-2gpu':     dict(ref_gpus=2,  kimg=25000,  mb=32, mbstd=16,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 48GB GPU
-        'stylegan2':     dict(ref_gpus=8,  kimg=25000,  mb=32, mbstd=4,  fmaps=1,   lrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, unlike original StyleGAN2
-        'paper256':      dict(ref_gpus=8,  kimg=25000,  mb=64, mbstd=8,  fmaps=0.5, lrate=0.0025, gamma=1,    ema=20,  ramp=None, map=8),
-        'paper512':      dict(ref_gpus=8,  kimg=25000,  mb=64, mbstd=8,  fmaps=1,   lrate=0.0025, gamma=0.5,  ema=20,  ramp=None, map=8),
-        'paper1024':     dict(ref_gpus=8,  kimg=25000,  mb=32, mbstd=4,  fmaps=1,   lrate=0.002,  gamma=2,    ema=10,  ramp=None, map=8),
-        'cifar':         dict(ref_gpus=2,  kimg=100000, mb=64, mbstd=32, fmaps=0.5, lrate=0.0025, gamma=0.01, ema=500, ramp=0.05, map=2),
-        'cifarbaseline': dict(ref_gpus=2,  kimg=100000, mb=64, mbstd=32, fmaps=0.5, lrate=0.0025, gamma=0.01, ema=500, ramp=0.05, map=8),
+        'auto':              dict(ref_gpus=-1, kimg=25000,  mb=-1, mbstd=-1, fmaps=-1,   glrate=-1,     dlrate=-1,     gamma=-1,   ema=-1,  ramp=0.05, map=2), # populated dynamically based on 'gpus' and 'res'
+        'auto2':             dict(ref_gpus=1, kimg=25000,   mb=-1, mbstd=-1, fmaps=-1,   glrate=-1,     dlrate=-1,     gamma=-1,   ema=-1,  ramp=None, map=8), # populated dynamically based on 'gpus' and 'res'
+        'aydao':             dict(ref_gpus=2,  kimg=25000,  mb=16, mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
+        '11gb-gpu':          dict(ref_gpus=1,  kimg=25000,  mb=4,  mbstd=4,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
+        '11gb-gpu-complex':  dict(ref_gpus=1,  kimg=25000,  mb=4,  mbstd=4,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 11GB GPU
+        '24gb-gpu':          dict(ref_gpus=1,  kimg=25000,  mb=8,  mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
+        '24gb-gpu-complex':  dict(ref_gpus=1,  kimg=25000,  mb=8,  mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
+        '24gb-gpu-complex2': dict(ref_gpus=1,  kimg=25000,  mb=12, mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
+        '24gb-gpu-color':    dict(ref_gpus=1,  kimg=25000,  mb=32, mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
+        '24gb-2gpu-complex': dict(ref_gpus=2,  kimg=25000,  mb=16, mbstd=8,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 24GB GPU
+        '48gb-gpu':          dict(ref_gpus=1,  kimg=25000,  mb=16, mbstd=16, fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 48GB GPU
+        '48gb-2gpu':         dict(ref_gpus=2,  kimg=25000,  mb=32, mbstd=16, fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, 48GB GPU
+        'stylegan2':         dict(ref_gpus=8,  kimg=25000,  mb=32, mbstd=4,  fmaps=1,    glrate=0.002,  dlrate=0.002,  gamma=10,   ema=10,  ramp=None, map=8), # uses mixed-precision, unlike original StyleGAN2
+        'paper256':          dict(ref_gpus=8,  kimg=25000,  mb=64, mbstd=8,  fmaps=0.5,  glrate=0.0025, dlrate=0.0025, gamma=1,    ema=20,  ramp=None, map=8),
+        'paper512':          dict(ref_gpus=8,  kimg=25000,  mb=64, mbstd=8,  fmaps=1,    glrate=0.0025, dlrate=0.0025, gamma=0.5,  ema=20,  ramp=None, map=8),
+        'paper1024':         dict(ref_gpus=8,  kimg=25000,  mb=32, mbstd=4,  fmaps=1,    glrate=0.0025, dlrate=0.0025, gamma=2,    ema=10,  ramp=None, map=8),
+        'cifar':             dict(ref_gpus=2,  kimg=100000, mb=64, mbstd=32, fmaps=0.5,  glrate=0.0025, dlrate=0.002,  gamma=0.01, ema=500, ramp=0.05, map=2),
+        'cifarbaseline':     dict(ref_gpus=2,  kimg=100000, mb=64, mbstd=32, fmaps=0.5,  glrate=0.0025, dlrate=0.002,  gamma=0.01, ema=500, ramp=0.05, map=8),
     }
 
     assert cfg in cfg_specs
     spec = dnnlib.EasyDict(cfg_specs[cfg])
-    if cfg == 'auto':
+    if cfg == 'auto' or cfg == 'auto2':
         desc += f'{gpus:d}'
         spec.ref_gpus = gpus
         res = args.training_set_kwargs.resolution
         spec.mb = max(min(gpus * min(4096 // res, 32), 64), gpus) # keep gpu memory consumption at bay
         spec.mbstd = min(spec.mb // gpus, 4) # other hyperparams behave more predictably if mbstd group size remains fixed
         spec.fmaps = 1 if res >= 512 else 0.5
-        spec.lrate = 0.002 if res >= 1024 else 0.0025
+        spec.glrate = 0.002 if res >= 1024 else 0.0025
+        spec.dlrate = 0.002 if res >= 1024 else 0.0025
         spec.gamma = 0.0002 * (res ** 2) / spec.mb # heuristic formula
         spec.ema = spec.mb * 10 / 32
 
-    if lrate is not None:
-        assert isinstance(lrate, float)
-        spec.lrate = lrate
+    if dlrate is not None:
+        assert isinstance(dlrate, float)
+        spec.dlrate = dlrate
+
+    if glrate is not None:
+        assert isinstance(glrate, float)
+        spec.glrate = glrate
 
     args.G_kwargs = dnnlib.EasyDict(class_name='training.networks.Generator', z_dim=512, w_dim=512, mapping_kwargs=dnnlib.EasyDict(), synthesis_kwargs=dnnlib.EasyDict())
     args.D_kwargs = dnnlib.EasyDict(class_name='training.networks.Discriminator', block_kwargs=dnnlib.EasyDict(), mapping_kwargs=dnnlib.EasyDict(), epilogue_kwargs=dnnlib.EasyDict())
@@ -207,8 +217,8 @@ def setup_training_loop_kwargs(
     args.G_kwargs.synthesis_kwargs.conv_clamp = args.D_kwargs.conv_clamp = 256 # clamp activations to avoid float16 overflow
     args.D_kwargs.epilogue_kwargs.mbstd_group_size = spec.mbstd
 
-    args.G_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', lr=spec.lrate, betas=[0,0.99], eps=1e-8)
-    args.D_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', lr=spec.lrate, betas=[0,0.99], eps=1e-8)
+    args.G_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', lr=spec.glrate, betas=[0,0.99], eps=1e-8)
+    args.D_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', lr=spec.dlrate, betas=[0,0.99], eps=1e-8)
     args.loss_kwargs = dnnlib.EasyDict(class_name='training.loss.StyleGAN2Loss', r1_gamma=spec.gamma)
 
     args.total_kimg = spec.kimg
@@ -453,8 +463,10 @@ class CommaSeparatedList(click.ParamType):
 @click.option('--mirrory', help='Augment dataset with y-flips (default: false)', type=bool, metavar='BOOL')
 
 # Base config.
-@click.option('--cfg', help='Base config [default: auto]', type=click.Choice(['auto', '11gb-gpu','11gb-gpu-complex', '24gb-gpu','24gb-gpu-complex', '48gb-gpu','48gb-2gpu', 'stylegan2', 'paper256', 'paper512', 'paper1024', 'cifar', 'cifarbaseline', 'aydao']))
-@click.option('--lrate', help='Override learning rate', type=float, metavar='FLOAT')
+@click.option('--cfg', help='Base config [default: auto]', type=click.Choice(['auto', 'auto2', '11gb-gpu','11gb-gpu-complex', '24gb-gpu', '24gb-2gpu-complex', '24gb-gpu-complex', '24gb-gpu-color', '24gb-gpu-complex2', '48gb-gpu','48gb-2gpu', 'stylegan2', 'paper256', 'paper512', 'paper1024', 'cifar', 'cifarbaseline', 'aydao']))
+# @click.option('--lrate', help='Override learning rate', type=float, metavar='FLOAT')
+@click.option('--glrate', help='Override generator learning rate', type=float, metavar='FLOAT')
+@click.option('--dlrate', help='Override discriminator learning rate', type=float, metavar='FLOAT')
 @click.option('--gamma', help='Override R1 gamma', type=float)
 @click.option('--kimg', help='Override training duration', type=int, metavar='INT')
 @click.option('--nkimg',  help='Override starting count', type=int, metavar='INT')
